@@ -1,4 +1,4 @@
-﻿package ma.fstt.dao;
+package ma.fstt.dao;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

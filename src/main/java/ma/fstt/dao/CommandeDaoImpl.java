@@ -6,7 +6,7 @@ import ma.fstt.entities.LignedeCommande;
 import ma.fstt.entities.Produit;
 import ma.fstt.service.ICommandeDao;
 
-import javax.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,15 +16,16 @@ public class CommandeDaoImpl implements ICommandeDao {
 
     @Override
     public Commande save(Commande commande) throws SQLException {
-        Connection conn = DbConnection.getConnection();
-        boolean autoCommitInitial = conn.getAutoCommit();
+        Connection conn = null;
+        boolean autoCommitInitial = true;
 
         String sqlCmd = "INSERT INTO commande (date_commande, statut, id_client) VALUES (?, ?, ?)";
         String sqlLigne = "INSERT INTO ligne_commande (id_commande, id_produit, quantite, prix_vente) VALUES (?, ?, ?, ?)";
-        String sqlStock = "UPDATE produit SET quantite_stock = quantite_stock - ? WHERE id_produit = ?";
+        String sqlStock = "UPDATE produit SET quantite_stock = quantite_stock - ? WHERE id_produit = ? AND quantite_stock >= ?";
 
         try {
-            // Début transaction
+            conn = DbConnection.getConnection();
+            autoCommitInitial = conn.getAutoCommit();
             conn.setAutoCommit(false);
 
             // 1. Inserer la commande
@@ -59,20 +60,27 @@ public class CommandeDaoImpl implements ICommandeDao {
                             }
                         }
 
-                        // Mise a jour du stock
+                        // Mise a jour securisee du stock (empeche un stock negatif)
                         psStock.setInt(1, ligne.getQuantite());
                         psStock.setLong(2, ligne.getProduit().getIdProduit());
-                        psStock.executeUpdate();
+                        psStock.setInt(3, ligne.getQuantite());
+                        int updated = psStock.executeUpdate();
+                        if (updated == 0) {
+                            throw new SQLException("Stock insuffisant pour le produit : " + ligne.getProduit().getDesignation());
+                        }
                     }
                 }
             }
 
             conn.commit();
         } catch (SQLException e) {
-            conn.rollback();
+            if (conn != null) conn.rollback();
             throw e;
         } finally {
-            conn.setAutoCommit(autoCommitInitial);
+            if (conn != null) {
+                conn.setAutoCommit(autoCommitInitial);
+                conn.close();
+            }
         }
 
         return commande;

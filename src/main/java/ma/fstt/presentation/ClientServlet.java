@@ -4,14 +4,13 @@ import ma.fstt.dao.ClientDaoImpl;
 import ma.fstt.entities.Client;
 import ma.fstt.service.IClientDao;
 
-import javax.inject.Inject;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.inject.Inject;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.List;
 
 @WebServlet("/clients")
@@ -57,8 +56,9 @@ public class ClientServlet extends HttpServlet {
                     req.getRequestDispatcher("/clients/index.jsp").forward(req, resp);
                     break;
             }
-        } catch (SQLException e) {
-            throw new ServletException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.sendRedirect(req.getContextPath() + "/clients");
         }
     }
 
@@ -82,8 +82,9 @@ public class ClientServlet extends HttpServlet {
                 clientDao.save(client);
             }
             resp.sendRedirect(req.getContextPath() + "/clients");
-        } catch (SQLException e) {
-            throw new ServletException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.sendRedirect(req.getContextPath() + "/clients");
         }
     }
 }

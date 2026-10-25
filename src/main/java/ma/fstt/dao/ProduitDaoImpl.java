@@ -3,7 +3,7 @@ package ma.fstt.dao;
 import ma.fstt.entities.Produit;
 import ma.fstt.service.IProduitDao;
 
-import javax.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;

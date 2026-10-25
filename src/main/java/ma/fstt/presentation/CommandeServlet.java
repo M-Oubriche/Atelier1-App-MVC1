@@ -11,14 +11,13 @@ import ma.fstt.service.IClientDao;
 import ma.fstt.service.ICommandeDao;
 import ma.fstt.service.IProduitDao;
 
-import javax.inject.Inject;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.inject.Inject;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
 
@@ -78,41 +77,65 @@ public class CommandeServlet extends HttpServlet {
                     req.getRequestDispatcher("/commandes/index.jsp").forward(req, resp);
                     break;
             }
-        } catch (SQLException e) {
-            throw new ServletException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.sendRedirect(req.getContextPath() + "/commandes");
         }
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         req.setCharacterEncoding("UTF-8");
-        Long idClient = Long.parseLong(req.getParameter("idClient"));
-        String[] produitIds = req.getParameterValues("produitId[]");
-        String[] quantites = req.getParameterValues("quantite[]");
 
         try {
+            String idClientStr = req.getParameter("idClient");
+            if (idClientStr == null || idClientStr.trim().isEmpty()) {
+                resp.sendRedirect(req.getContextPath() + "/commandes?action=new");
+                return;
+            }
+
+            Long idClient = Long.parseLong(idClientStr);
             Client client = clientDao.findById(idClient);
             Commande commande = new Commande(new Date(), "EN_ATTENTE", client);
 
-            if (produitIds != null && quantites != null) {
-                for (int i = 0; i < produitIds.length; i++) {
-                    if (produitIds[i] == null || produitIds[i].trim().isEmpty()) continue;
-                    Long pId = Long.parseLong(produitIds[i]);
-                    int qte = Integer.parseInt(quantites[i]);
+            String[] pIds = req.getParameterValues("produitId");
+            if (pIds == null) pIds = req.getParameterValues("produitId[]");
+
+            String[] qtes = req.getParameterValues("quantite");
+            if (qtes == null) qtes = req.getParameterValues("quantite[]");
+
+            if (pIds != null && qtes != null) {
+                for (int i = 0; i < pIds.length; i++) {
+                    if (pIds[i] == null || pIds[i].trim().isEmpty()) continue;
+                    Long pId = Long.parseLong(pIds[i]);
+                    int qte = Integer.parseInt(qtes[i]);
                     if (qte <= 0) continue;
 
                     Produit p = produitDao.findById(pId);
                     if (p != null) {
+                        // Verification de la quantite disponible
+                        if (p.getQuantiteStock() < qte) {
+                            req.getSession().setAttribute("errorMsg", "Stock insuffisant pour " + p.getDesignation() + " (Stock disponible : " + p.getQuantiteStock() + ")");
+                            resp.sendRedirect(req.getContextPath() + "/commandes?action=new");
+                            return;
+                        }
+
                         LignedeCommande ligne = new LignedeCommande(qte, p.getPrixUnitaire(), commande, p);
                         commande.ajouterLigne(ligne);
                     }
                 }
             }
 
-            commandeDao.save(commande);
-            resp.sendRedirect(req.getContextPath() + "/commandes?action=details&id=" + commande.getIdCommande());
-        } catch (SQLException e) {
-            throw new ServletException(e);
+            if (!commande.getLignes().isEmpty()) {
+                commandeDao.save(commande);
+                resp.sendRedirect(req.getContextPath() + "/commandes?action=details&id=" + commande.getIdCommande());
+            } else {
+                resp.sendRedirect(req.getContextPath() + "/commandes?action=new");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            req.getSession().setAttribute("errorMsg", "Erreur lors de l'enregistrement : " + e.getMessage());
+            resp.sendRedirect(req.getContextPath() + "/commandes?action=new");
         }
     }
 }
